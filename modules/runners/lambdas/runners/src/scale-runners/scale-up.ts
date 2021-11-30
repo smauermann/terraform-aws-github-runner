@@ -3,6 +3,7 @@ import { createOctoClient, createGithubAppAuth, createGithubInstallationAuth } f
 import yn from 'yn';
 import { Octokit } from '@octokit/rest';
 import { logger as rootLogger } from './logger';
+import ScaleError from './ScaleError';
 
 const logger = rootLogger.getChildLogger();
 
@@ -57,9 +58,7 @@ export async function scaleUp(eventSource: string, payload: ActionRequestMessage
   const runnerType = enableOrgLevel ? 'Org' : 'Repo';
   const runnerOwner = enableOrgLevel ? payload.repositoryOwner : `${payload.repositoryOwner}/${payload.repositoryName}`;
 
-  const isQueued = await getJobStatus(githubInstallationClient, payload);
-  // ephemeral runners should be created on every event, will only work with `workflow_job` events.
-  if (ephemeral || isQueued) {
+  if (ephemeral || (await getJobStatus(githubInstallationClient, payload))) {
     const currentRunners = await listEC2Runners({
       environment,
       runnerType,
@@ -67,7 +66,6 @@ export async function scaleUp(eventSource: string, payload: ActionRequestMessage
     });
     logger.info(`${runnerType} ${runnerOwner} has ${currentRunners.length}/${maximumRunners} runners`);
 
-    // TODO: how to handle the event if the max is reached in case of ephemeral runners
     if (currentRunners.length < maximumRunners) {
       console.info(`Attempting to launch a new runner`);
       // create token
@@ -94,7 +92,10 @@ export async function scaleUp(eventSource: string, payload: ActionRequestMessage
         runnerType,
       });
     } else {
-      logger.info('No runner will be created, maximum number of runners reached.');
+      logger.warn('No runner created: maximum number of runners reached.');
+      if (ephemeral) {
+        throw new ScaleError('No runners create: maximum of runners reached.');
+      }
     }
   }
 }
@@ -139,6 +140,6 @@ export async function createRunnerLoop(runnerParameters: RunnerInputParameters):
     }
   }
   if (launched == false) {
-    throw Error('All launch templates failed');
+    throw new ScaleError('All launch templates failed');
   }
 }
