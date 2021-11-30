@@ -32,4 +32,4 @@ chown -R $USER_NAME:$USER_NAME .
 OVERWRITE_SERVICE_USER=${run_as_root_user}
 SERVICE_USER=$${OVERWRITE_SERVICE_USER:-$USER_NAME}
 
-./svc.sh install $SERVICE_USER
+# ./svc.sh install $SERVICE_USER

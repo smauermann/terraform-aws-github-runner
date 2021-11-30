@@ -22,4 +22,8 @@ ${install_config_runner}
 
 ${post_install}
 
-./svc.sh start
+# TODO: svc.sh start replaced by run.sh and once stopped / exitted the instance terminated
+sudo -u $SERVICE_USER -- ./run.sh
+#service awslogsd stop
+
+aws ec2 terminate-instances --instance-ids $INSTANCE_ID --region $REGION
